@@ -1,0 +1,57 @@
+name: Compilar APK de Android
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch: # Permite iniciar la compilación manualmente desde GitHub Actions
+
+jobs:
+  build:
+    name: Compilar APK (Android)
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Descargar el código del repositorio
+      - name: Descargar Código
+        uses: actions/checkout@v3
+
+      # 2. Configurar el entorno de Node.js
+      - name: Configurar Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: app/package-lock.json
+
+      # 3. Instalar dependencias del proyecto
+      - name: Instalar Dependencias
+        run: |
+          cd app
+          npm install --legacy-peer-deps
+
+      # 4. Configurar Java JDK (necesario para Gradle y Android)
+      - name: Configurar Java JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      # 5. Generar carpetas nativas de Android (Expo Prebuild)
+      - name: Generar Proyecto Nativo (Prebuild)
+        run: |
+          cd app
+          npx expo prebuild --platform android --no-install
+
+      # 6. Compilar la APK usando Gradle
+      - name: Compilar APK (Gradle Debug)
+        run: |
+          cd app/android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      # 7. Subir la APK generada como artefacto descargable
+      - name: Guardar APK como Artefacto
+        uses: actions/upload-artifact@v3
+        with:
+          name: seguidor-gps-apk
+          path: app/android/app/build/outputs/apk/debug/app-debug.apk

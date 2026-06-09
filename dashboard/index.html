@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seguidor GPS - Panel de Control</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    :root {
+      --bg-color: #0b0f19;
+      --panel-bg: rgba(17, 24, 39, 0.85);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --accent-color: #3b82f6;
+      --accent-success: #10b981;
+      --accent-warning: #f59e0b;
+      --accent-danger: #ef4444;
+      --glow-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+    }
+
+    #app-container {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    #map {
+      flex-grow: 1;
+      height: 100%;
+      z-index: 1;
+      background: #0f172a;
+    }
+
+    /* Sidebar Panel */
+    .sidebar {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      width: 380px;
+      max-height: calc(100vh - 40px);
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      z-index: 10;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      overflow-y: auto;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-logo i {
+      font-size: 24px;
+      color: var(--accent-color);
+      text-shadow: var(--glow-shadow);
+    }
+
+    .header-logo h1 {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+    }
+
+    /* Configuration Panel */
+    .config-section {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .config-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .input-group label {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    input[type="text"], input[type="password"], textarea {
+      flex-grow: 1;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus, input[type="password"]:focus, textarea:focus {
+      border-color: var(--accent-color);
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+
+    button {
+      background: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    button:hover {
+      background: #2563eb;
+      box-shadow: var(--glow-shadow);
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button.secondary {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+    }
+
+    button.secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+      box-shadow: none;
+    }
+
+    /* Tracking Status Card */
+    .status-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      display: none; /* Hidden until connected */
+    }
+
+    .status-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .indicator-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: var(--text-muted);
+    }
+
+    .indicator-dot.online {
+      background-color: var(--accent-success);
+      box-shadow: 0 0 10px var(--accent-success);
+      animation: pulse 2s infinite;
+    }
+
+    .indicator-dot.offline {
+      background-color: var(--accent-danger);
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    .data-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .data-item {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .data-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .data-value {
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .data-value i {
+      color: var(--accent-color);
+    }
+
+    .battery-value.good i { color: var(--accent-success); }
+    .battery-value.warn i { color: var(--accent-warning); }
+    .battery-value.low i { color: var(--accent-danger); }
+
+    .last-updated {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: 4px;
+    }
+
+    /* History Timeline Control */
+    .history-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      display: none;
+    }
+
+    /* Modal Styling */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(5px);
+      z-index: 100;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal {
+      background: var(--bg-color);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 30px;
+      width: 500px;
+      max-width: 90%;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+      transform: translateY(20px);
+      transition: transform 0.3s;
+    }
+
+    .modal-overlay.active .modal {
+      transform: translateY(0);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h2 {
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .modal-close {
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 20px;
+      background: none;
+      border: none;
+    }
+
+    .modal-close:hover {
+      color: var(--text-main);
+    }
+
+    .alert {
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .alert-info {
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: #93c5fd;
+    }
+
+    /* Leaflet customization for dark mode */
+    .leaflet-tile-layer {
+      filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+    }
+
+    .leaflet-bar {
+      border: 1px solid var(--border-color) !important;
+      background: var(--panel-bg) !important;
+      backdrop-filter: blur(10px);
+    }
+
+    .leaflet-bar a {
+      background: transparent !important;
+      color: var(--text-main) !important;
+      border-bottom: 1px solid var(--border-color) !important;
+    }
+
+    .leaflet-bar a:hover {
+      background: rgba(255, 255, 255, 0.1) !important;
+    }
+
+    /* Custom Leaflet Marker */
+    .custom-marker {
+      background: var(--accent-color);
+      border: 2px solid white;
+      border-radius: 50%;
+      box-shadow: 0 0 15px var(--accent-color);
+      width: 16px;
+      height: 16px;
+    }
+
+    .custom-marker.pulse::after {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid var(--accent-color);
+      animation: pulseMarker 1.8s infinite;
+      box-sizing: content-box;
+    }
+
+    @keyframes pulseMarker {
+      0% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(3.5); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="app-container">
+    
+    <!-- Sidebar Panel -->
+    <div class="sidebar">
+      <div class="header-logo">
+        <i class="fa-solid fa-map-location-dot"></i>
+        <h1>Seguidor GPS</h1>
+      </div>
+
+      <!-- Config Check & Activation -->
+      <div class="config-section" id="initial-setup-section">
+        <p style="font-size: 14px; margin-bottom: 12px; color: var(--text-muted);">
+          Configura Firebase para iniciar el seguimiento.
+        </p>
+        <button id="open-config-btn" style="width: 100%;">
+          <i class="fa-solid fa-gear"></i> Configurar Firebase
+        </button>
+      </div>
+
+      <!-- Device Tracking Config -->
+      <div class="config-section" id="device-selection-section" style="display: none;">
+        <div class="config-title">
+          <span>Dispositivo a Seguir</span>
+        </div>
+        <div class="input-group">
+          <label for="device-id-input">ID del Dispositivo (Hija)</label>
+          <div class="input-row">
+            <input type="text" id="device-id-input" placeholder="ej. maria_gps">
+            <button id="track-btn">Seguir</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Realtime Status Card -->
+      <div class="status-card" id="tracking-card">
+        <div class="status-header">
+          <h3 id="device-title" style="font-size: 18px; font-weight: 600;">Cargando...</h3>
+          <div class="status-indicator">
+            <div class="indicator-dot" id="status-dot"></div>
+            <span id="status-text">Desconectado</span>
+          </div>
+        </div>
+
+        <div class="data-grid">
+          <div class="data-item">
+            <span class="data-label">Batería</span>
+            <span class="data-value battery-value" id="battery-val">
+              <i class="fa-solid fa-battery-half"></i> <span>--%</span>
+            </span>
+          </div>
+          <div class="data-item">
+            <span class="data-label">Velocidad</span>
+            <span class="data-value" id="speed-val">
+              <i class="fa-solid fa-gauge-high"></i> <span>0 km/h</span>
+            </span>
+          </div>
+          <div class="data-item" style="grid-column: span 2;">
+            <span class="data-label">Últimas Coordenadas</span>
+            <span class="data-value" id="coords-val" style="font-size: 13px;">
+              <i class="fa-solid fa-location-crosshairs"></i> <span>--, --</span>
+            </span>
+          </div>
+        </div>
+
+        <div class="last-updated" id="time-val">
+          Última actualización: Nunca
+        </div>
+      </div>
+
+      <!-- History Controls -->
+      <div class="history-card" id="history-card">
+        <div class="config-title">
+          <span>Historial de Hoy</span>
+        </div>
+        <button id="toggle-history-btn" class="secondary" style="width: 100%;">
+          <i class="fa-solid fa-route"></i> Mostrar Historial
+        </button>
+      </div>
+
+      <div style="margin-top: auto; padding-top: 15px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 11px; color: var(--text-muted);">v1.0.0</span>
+        <button id="reconfig-btn" class="secondary" style="padding: 6px 10px; font-size: 11px; display: none;">
+          Cambiar Firebase
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Map Canvas -->
+    <div id="map"></div>
+
+  </div>
+
+  <!-- Firebase Configuration Modal -->
+  <div class="modal-overlay" id="config-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Configurar Firebase</h2>
+        <button class="modal-close" id="close-config-btn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      
+      <div class="alert alert-info">
+        <i class="fa-solid fa-info-circle"></i>
+        Para conectar el panel, ingresa la configuración de tu base de datos Firebase Realtime Database. Puedes obtener esta información en la consola de Firebase.
+      </div>
+
+      <div class="input-group">
+        <label for="firebase-db-url">URL de Firebase Realtime Database</label>
+        <input type="text" id="firebase-db-url" placeholder="https://mi-proyecto-default-rtdb.firebaseio.com">
+      </div>
+
+      <div class="input-group">
+        <label for="firebase-api-key">API Key (Opcional si usas reglas abiertas)</label>
+        <input type="password" id="firebase-api-key" placeholder="AIzaSy...">
+      </div>
+
+      <div class="input-group">
+        <label for="firebase-project-id">Project ID (Opcional)</label>
+        <input type="text" id="firebase-project-id" placeholder="mi-proyecto">
+      </div>
+
+      <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 10px;">
+        <button class="secondary" id="cancel-config-btn">Cancelar</button>
+        <button id="save-config-btn">Guardar y Conectar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase JS SDK (v8) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <script>
+    // Variables globales
+    let map;
+    let marker;
+    let historyPolyline;
+    let firebaseApp = null;
+    let database = null;
+    let currentDeviceRef = null;
+    let currentHistoryRef = null;
+    let historyData = [];
+    let showHistory = false;
+    let activeDeviceId = '';
+
+    // Inicializar mapa
+    function initMap() {
+      map = L.map('map', {
+        zoomControl: false
+      }).setView([-34.6037, -58.3816], 13); // Buenos Aires por defecto
+
+      // Capa base de OpenStreetMap (versión oscura)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      }).addTo(map);
+
+      // Posicionar controles de zoom a la derecha
+      L.control.zoom({ position: 'topright' }).addTo(map);
+
+      // Crear polilínea para el historial
+      historyPolyline = L.polyline([], {
+        color: '#3b82f6',
+        weight: 4,
+        opacity: 0.7,
+        dashArray: '5, 10'
+      }).addTo(map);
+    }
+
+    // Guardar/Cargar Configuración de Firebase
+    function loadFirebaseConfig() {
+      const savedConfig = localStorage.getItem('firebase_tracker_config');
+      if (savedConfig) {
+        const config = JSON.parse(savedConfig);
+        document.getElementById('firebase-db-url').value = config.databaseURL || '';
+        document.getElementById('firebase-api-key').value = config.apiKey || '';
+        document.getElementById('firebase-project-id').value = config.projectId || '';
+        
+        initializeFirebase(config);
+        
+        document.getElementById('initial-setup-section').style.display = 'none';
+        document.getElementById('device-selection-section').style.display = 'block';
+        document.getElementById('reconfig-btn').style.display = 'block';
+      }
+    }
+
+    function initializeFirebase(config) {
+      // Si ya hay una instancia, la borramos
+      if (firebase.apps.length > 0) {
+        firebase.apps[0].delete().then(() => {
+          setupFirebaseApp(config);
+        });
+      } else {
+        setupFirebaseApp(config);
+      }
+    }
+
+    function setupFirebaseApp(config) {
+      try {
+        firebaseApp = firebase.initializeApp(config);
+        database = firebase.database();
+        console.log("Firebase inicializado con éxito.");
+      } catch (error) {
+        alert("Error al inicializar Firebase: " + error.message);
+      }
+    }
+
+    // Iniciar Seguimiento del Dispositivo
+    function startTracking(deviceId) {
+      if (!database) {
+        alert("Firebase no está inicializado.");
+        return;
+      }
+
+      activeDeviceId = deviceId.trim();
+      if (!activeDeviceId) {
+        alert("Por favor ingresa un ID de dispositivo válido.");
+        return;
+      }
+
+      // Limpiar listeners anteriores si existen
+      if (currentDeviceRef) currentDeviceRef.off();
+      if (currentHistoryRef) currentHistoryRef.off();
+
+      // UI updates
+      document.getElementById('tracking-card').style.display = 'flex';
+      document.getElementById('history-card').style.display = 'block';
+      document.getElementById('device-title').innerText = activeDeviceId;
+
+      // Resetear historial en mapa
+      historyData = [];
+      historyPolyline.setLatLngs([]);
+
+      // Escuchar ubicación en tiempo real
+      currentDeviceRef = database.ref(`devices/${activeDeviceId}`);
+      currentDeviceRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          updateDeviceUI(data);
+          updateMapMarker(data);
+        } else {
+          document.getElementById('device-title').innerText = activeDeviceId + " (Sin Datos)";
+          document.getElementById('status-dot').className = 'indicator-dot offline';
+          document.getElementById('status-text').innerText = 'Sin registros';
+        }
+      });
+
+      // Escuchar historial de hoy
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      currentHistoryRef = database.ref(`history/${activeDeviceId}`).orderByChild('date').equalTo(today);
+      currentHistoryRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          // Convertir objeto de objetos a array ordenado por timestamp
+          historyData = Object.values(data).sort((a, b) => a.timestamp - b.timestamp);
+          if (showHistory) {
+            drawHistoryLine();
+          }
+        }
+      });
+    }
+
+    function updateDeviceUI(data) {
+      const lat = data.latitude;
+      const lng = data.longitude;
+      const battery = data.battery !== undefined ? Math.round(data.battery * 100) : null;
+      const speed = data.speed !== undefined ? Math.round(data.speed * 3.6) : 0; // m/s a km/h
+      const timestamp = data.timestamp;
+
+      // Coordenadas
+      document.getElementById('coords-val').querySelector('span').innerText = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      
+      // Velocidad
+      document.getElementById('speed-val').querySelector('span').innerText = `${speed} km/h`;
+
+      // Batería
+      const batterySpan = document.getElementById('battery-val');
+      const batteryText = batterySpan.querySelector('span');
+      const batteryIcon = batterySpan.querySelector('i');
+      
+      if (battery !== null) {
+        batteryText.innerText = `${battery}%`;
+        
+        // Clases de color para la batería
+        batterySpan.className = 'data-value battery-value';
+        if (battery > 50) {
+          batterySpan.classList.add('good');
+          batteryIcon.className = 'fa-solid fa-battery-three-quarters';
+        } else if (battery > 20) {
+          batterySpan.classList.add('warn');
+          batteryIcon.className = 'fa-solid fa-battery-quarter';
+        } else {
+          batterySpan.classList.add('low');
+          batteryIcon.className = 'fa-solid fa-battery-empty';
+        }
+      } else {
+        batteryText.innerText = '--%';
+        batteryIcon.className = 'fa-solid fa-battery-half';
+      }
+
+      // Estado Online/Offline (Activo si la actualización es menor a 5 minutos)
+      const diffMs = Date.now() - timestamp;
+      const diffMins = diffMs / 1000 / 60;
+      const isOnline = diffMins < 5;
+
+      const dot = document.getElementById('status-dot');
+      const txt = document.getElementById('status-text');
+      
+      if (isOnline) {
+        dot.className = 'indicator-dot online';
+        txt.innerText = 'Conectado';
+        txt.style.color = 'var(--accent-success)';
+      } else {
+        dot.className = 'indicator-dot offline';
+        txt.innerText = 'Desconectado';
+        txt.style.color = 'var(--accent-danger)';
+      }
+
+      // Último timestamp
+      const date = new Date(timestamp);
+      document.getElementById('time-val').innerText = `Última actualización: ${date.toLocaleTimeString()}`;
+    }
+
+    function updateMapMarker(data) {
+      const pos = [data.latitude, data.longitude];
+      
+      if (!marker) {
+        // Crear marcador personalizado con efecto de pulso
+        const customIcon = L.divIcon({
+          className: 'custom-marker pulse',
+          iconSize: [20, 20],
+          iconAnchor: [10, 10]
+        });
+        
+        marker = L.marker(pos, { icon: customIcon }).addTo(map);
+        map.setView(pos, 16);
+      } else {
+        marker.setLatLng(pos);
+        // Desplazar mapa suavemente para centrar el marcador
+        map.panTo(pos);
+      }
+      
+      // Popup simple con información básica
+      marker.bindPopup(`
+        <div style="color: #333; font-family: sans-serif; font-size:12px;">
+          <b>${activeDeviceId}</b><br/>
+          Batería: ${data.battery ? Math.round(data.battery * 100) + '%' : 'N/A'}<br/>
+          Velocidad: ${data.speed ? Math.round(data.speed * 3.6) + ' km/h' : '0 km/h'}<br/>
+          Hora: ${new Date(data.timestamp).toLocaleTimeString()}
+        </div>
+      `);
+    }
+
+    function drawHistoryLine() {
+      if (historyData.length === 0) return;
+      const points = historyData.map(pt => [pt.latitude, pt.longitude]);
+      historyPolyline.setLatLngs(points);
+      
+      // Ajustar la vista del mapa para englobar todo el historial
+      if (points.length > 1) {
+        map.fitBounds(historyPolyline.getBounds(), { padding: [50, 50] });
+      }
+    }
+
+    // Event Listeners
+    document.addEventListener('DOMContentLoaded', () => {
+      initMap();
+      loadFirebaseConfig();
+
+      const modal = document.getElementById('config-modal');
+      
+      // Abrir modal de configuración
+      document.getElementById('open-config-btn').addEventListener('click', () => {
+        modal.classList.add('active');
+      });
+
+      document.getElementById('reconfig-btn').addEventListener('click', () => {
+        modal.classList.add('active');
+      });
+
+      // Cerrar modal
+      document.getElementById('close-config-btn').addEventListener('click', () => {
+        modal.classList.remove('active');
+      });
+      document.getElementById('cancel-config-btn').addEventListener('click', () => {
+        modal.classList.remove('active');
+      });
+
+      // Guardar Firebase Config
+      document.getElementById('save-config-btn').addEventListener('click', () => {
+        const dbURL = document.getElementById('firebase-db-url').value.trim();
+        const apiKey = document.getElementById('firebase-api-key').value.trim();
+        const projectId = document.getElementById('firebase-project-id').value.trim();
+
+        if (!dbURL) {
+          alert("La URL de la base de datos es obligatoria.");
+          return;
+        }
+
+        const config = {
+          databaseURL: dbURL,
+          apiKey: apiKey || undefined,
+          projectId: projectId || undefined
+        };
+
+        localStorage.setItem('firebase_tracker_config', JSON.stringify(config));
+        initializeFirebase(config);
+
+        modal.classList.remove('active');
+        document.getElementById('initial-setup-section').style.display = 'none';
+        document.getElementById('device-selection-section').style.display = 'block';
+        document.getElementById('reconfig-btn').style.display = 'block';
+      });
+
+      // Iniciar Seguimiento
+      document.getElementById('track-btn').addEventListener('click', () => {
+        const id = document.getElementById('device-id-input').value;
+        startTracking(id);
+      });
+
+      // Toggle Historial
+      const toggleHistoryBtn = document.getElementById('toggle-history-btn');
+      toggleHistoryBtn.addEventListener('click', () => {
+        showHistory = !showHistory;
+        if (showHistory) {
+          toggleHistoryBtn.innerHTML = '<i class="fa-solid fa-eye-slash"></i> Ocultar Historial';
+          toggleHistoryBtn.classList.remove('secondary');
+          drawHistoryLine();
+        } else {
+          toggleHistoryBtn.innerHTML = '<i class="fa-solid fa-route"></i> Mostrar Historial';
+          toggleHistoryBtn.classList.add('secondary');
+          historyPolyline.setLatLngs([]);
+          if (marker) map.setView(marker.getLatLng(), 16);
+        }
+      });
+    });
+  </script>
+</body>
+</html>
